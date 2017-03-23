@@ -7,6 +7,7 @@
 # Version 0.2 - The barely working one. Shoddy as shit, honest.
 # Version 0.3 - Error reporting, tidied console/file output. Still shoddy, but kinda functional
 # Version 0.4 - Now works for all ports, can set SSL with -s switch. Doesn't suck as much.
+# Version 0.5 - Added preference for output file, style tidy, removed global var (thanks to @erickolb)
 
 # TO DO: Guess could set search pattern (currently 'login') for greater flex
 # Not sure it would add much. Would like to keep sys.argv as clean as preferably
@@ -19,7 +20,7 @@ import argparse
 import time
 from os.path import isfile
 
-__version__ = "0.4"
+__version__ = "0.5"
 
 clear = "\x1b[0m"
 red = "\x1b[1;31m"
@@ -48,19 +49,6 @@ def banner():
 
 
 
-# Set the command up for subprocess. Curl timeout currently set to 4000ms
-def setcmd(ssl, ip_address):
-    global cmd
-    if not ssl:
-        cmd = ["curl", "-m", "4", ip_address]
-        return cmd
-    if ssl:
-        ip_address = "https://" + ip_address
-        cmd = ["curl", "-m", "4", "-k", ip_address]
-        return cmd
-
-
-
 # Runs a check to ensure an actual IP address is being passed
 def validate_ip(ip):
     try:
@@ -75,15 +63,10 @@ def validate_ip(ip):
 def main():
     banner()
 
-# Set time var to tack onto output file
-    timestring = time.strftime("%H%M%S_%d-%m-%Y")
-
-# Set output file name
-    outfile = "HTGrab_" + timestring + ".txt"
-
     parser = argparse.ArgumentParser(description=green + "Grab HTTP/S and checks for login pages" + clear)
     parser.add_argument("-p", help="Port to query, 80 or 443 only atm", required=True)
     parser.add_argument("-f", help="Gnmap file", required=True)
+    parser.add_argument("-o", help="Output file", action="store")
     parser.add_argument("-v", help="Some verbosity", action="store_true")
     parser.add_argument("-vv", help="MAXIMUM SPID... verbosity", action="store_true")
     parser.add_argument("-q", help="Quench errors. Recommend -v if used.", action="store_true")
@@ -92,35 +75,48 @@ def main():
 
     infile = open(args.f,"r")
 
-# Open gnmap input file and loop, trigger curl to grab HTTP
+    # Set time var to tack onto output file
+    timestring = time.strftime("%H%M%S_%d-%m-%Y")
+
+    # Set output file name
+    if args.o:
+        outfile = args.o + "_" + timestring + ".txt"
+    else:
+        outfile = "HTGrab_" + timestring + ".txt"
+
+    # Open gnmap input file and loop, trigger curl to grab HTTP
     for line in infile:
         if re.search(args.p,line):
             ip = line.split(' ')[1]
 
             if validate_ip(ip):
-                setcmd(args.s,ip)
+                if not args.s:
+                    cmd = ["curl", "-m", "4", ip]
+                if args.s:
+                    ip = "https://" + ip
+                    cmd = ["curl", "-m", "4", "-k", ip]
             else:
                 continue
             try:
                 proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                 stdout_data, stderr_data = proc.communicate()
 
-# Tell you which IP is current target. At least shows that something is happening
+		# Tell you which IP is current target. At least shows that something is happening
                 if args.v:
                     print("%s{+}Running: %s%s " % (cyan,cmd,clear))
 
-# Max Verbosity, will show curl progress per IP
+		# Max Verbosity, will show curl progress per IP
                 if args.vv:
                     print("%s{+}Running: %s%s " % (cyan,cmd,clear))
                     print stderr_data
 
-# Simple check if 'login' exists in HTML, stash IP.
-                if "login" in stdout_data:
+		# Simple check if 'login' exists in HTML, stash IP.
+                if "login" or "logon" in stdout_data:
                     targetfile = open(outfile,"a")
                     targetfile.write(ip)
                     targetfile.write("\n")
 
-# Quench the ol' errors.
+		# Quench the ol' errors.
                 if not args.q:
                     if proc.returncode != 0:
                         raise RuntimeError("%r failed, stderr:\n%r" % (cmd, stderr_data))
