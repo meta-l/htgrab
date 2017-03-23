@@ -8,9 +8,9 @@
 # Version 0.3 - Error reporting, tidied console/file output. Still shoddy, but kinda functional
 # Version 0.4 - Now works for all ports, can set SSL with -s switch. Doesn't suck as much.
 # Version 0.5 - Added preference for output file, style tidy, removed global var (thanks to @erickolb)
+# Version 0.6 - Added preference for search term, defaults to login if not given, added writeout function
 
-# TO DO: Guess could set search pattern (currently 'login') for greater flex
-# Not sure it would add much. Would like to keep sys.argv as clean as preferably
+
 
 import subprocess
 import re
@@ -20,7 +20,7 @@ import argparse
 import time
 from os.path import isfile
 
-__version__ = "0.5"
+__version__ = "0.6"
 
 clear = "\x1b[0m"
 red = "\x1b[1;31m"
@@ -60,17 +60,25 @@ def validate_ip(ip):
 
 
 
+def writeout(filename,ip_address):
+    targetfile = open(filename,"a")
+    targetfile.write(ip_address)
+    targetfile.write("\n")
+
+
+
 def main():
     banner()
 
     parser = argparse.ArgumentParser(description=green + "Grab HTTP/S and checks for login pages" + clear)
-    parser.add_argument("-p", help="Port to query, 80 or 443 only atm", required=True)
+    parser.add_argument("-p", help="Port to query", required=True)
     parser.add_argument("-f", help="Gnmap file", required=True)
     parser.add_argument("-o", help="Output file", action="store")
+    parser.add_argument("-t", help="Search term", action="store")
     parser.add_argument("-v", help="Some verbosity", action="store_true")
     parser.add_argument("-vv", help="MAXIMUM SPID... verbosity", action="store_true")
     parser.add_argument("-q", help="Quench errors. Recommend -v if used.", action="store_true")
-    parser.add_argument("-s", help="Perform insecure SSL connection", action="store_true")
+    parser.add_argument("-s", help="Perform (insecure) SSL connection", action="store_true")
     args = parser.parse_args()
 
     infile = open(args.f,"r")
@@ -110,11 +118,15 @@ def main():
                     print("%s{+}Running: %s%s " % (cyan,cmd,clear))
                     print stderr_data
 
-		# Simple check if 'login' exists in HTML, stash IP.
-                if "login" or "logon" in stdout_data:
-                    targetfile = open(outfile,"a")
-                    targetfile.write(ip)
-                    targetfile.write("\n")
+		# Simple check if user search term exists in HTML, stash IP.
+                if args.t:
+                    if args.t in stdout_data:
+                        writeout(outfile,ip)
+
+               # If no search term given, default search term
+                else:
+                    if "login" or "logon" in stdout_data:
+                        writeout(outfile,ip)
 
 		# Quench the ol' errors.
                 if not args.q:
