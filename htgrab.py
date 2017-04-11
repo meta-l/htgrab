@@ -6,11 +6,11 @@
 # Version 0.1 - Loops the curl command. Woop-di-fucking-do.
 # Version 0.2 - The barely working one. Shoddy as shit, honest.
 # Version 0.3 - Error reporting, tidied console/file output. Still shoddy, but kinda functional
-# Version 0.4 - Now works for all ports, can set SSL with -s switch. Doesn't suck as much.
+# Version 0.4 - Works for 80/443, can set SSL with -s switch. Doesn't suck as much.
 # Version 0.5 - Added preference for output file, style tidy, removed global var (thanks to @erickolb)
-# Version 0.6 - Added preference for search term, defaults to login if not given, added writeout function
+# Version 0.6 - Added preference for search term, defaults to 'login' or 'logon' if not given, added writeout function
 
-
+# To do: Make workable with other ports
 
 import subprocess
 import re
@@ -71,9 +71,9 @@ def main():
     banner()
 
     parser = argparse.ArgumentParser(description=green + "Grab HTTP/S and checks for login pages" + clear)
-    parser.add_argument("-p", help="Port to query", required=True)
+    parser.add_argument("-p", help="Port to query. 80/443 only atm", required=True)
     parser.add_argument("-f", help="Gnmap file", required=True)
-    parser.add_argument("-o", help="Output file", action="store")
+    parser.add_argument("-o", help="Output file (prefix only needed)", action="store")
     parser.add_argument("-t", help="Search term", action="store")
     parser.add_argument("-v", help="Some verbosity", action="store_true")
     parser.add_argument("-vv", help="MAXIMUM SPID... verbosity", action="store_true")
@@ -99,8 +99,12 @@ def main():
 
             if validate_ip(ip):
                 if not args.s:
+                    # Beginning of attempt to include other ports than 80/443
+                    #ip = ip + ":" + args.p
                     cmd = ["curl", "-m", "4", ip]
                 if args.s:
+                    # As above
+                    #ip = ip + ":" + args.p
                     ip = "https://" + ip
                     cmd = ["curl", "-m", "4", "-k", ip]
             else:
